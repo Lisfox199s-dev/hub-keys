@@ -1,0 +1,372 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#090b12">
+  <title>Hub Keys</title>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 28px 18px;
+      background:
+        radial-gradient(ellipse at 50% -15%, #26376c 0%, transparent 55%),
+        #090b12;
+      color: #f5f7ff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .app {
+      max-width: 440px;
+      margin: auto;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 8px 0 36px;
+    }
+
+    .logo {
+      width: 49px;
+      height: 49px;
+      border-radius: 15px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(145deg, #648cff, #7654e8);
+      font-size: 27px;
+      font-weight: bold;
+    }
+
+    .brand-name {
+      font-size: 21px;
+      font-weight: 800;
+    }
+
+    .brand-sub {
+      color: #929bad;
+      font-size: 12px;
+      margin-top: 3px;
+    }
+
+    h1 {
+      font-size: 27px;
+      margin: 0 0 10px;
+    }
+
+    .intro {
+      color: #929bad;
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 25px;
+    }
+
+    .card {
+      padding: 22px;
+      border-radius: 23px;
+      background: linear-gradient(155deg, #191f2e, #10141f);
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow: 0 18px 50px rgba(0,0,0,.25);
+    }
+
+    .card-label {
+      color: #929bad;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+    }
+
+    .key {
+      margin: 15px 0;
+      padding: 17px 10px;
+      border-radius: 14px;
+      background: rgba(0,0,0,.25);
+      border: 1px solid rgba(255,255,255,.08);
+      text-align: center;
+      font-family: monospace;
+      font-size: clamp(16px, 5vw, 21px);
+      font-weight: 750;
+      overflow-wrap: anywhere;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin: 18px 0;
+      font-size: 13px;
+      color: #c5cede;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #eab85a;
+    }
+
+    .dot.active { background: #42d69a; }
+    .dot.revoked { background: #ff6577; }
+
+    button {
+      width: 100%;
+      min-height: 51px;
+      border: none;
+      border-radius: 14px;
+      color: white;
+      font-size: 15px;
+      font-weight: 750;
+      background: linear-gradient(100deg, #5d8cff, #8b5cf6);
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .45;
+      cursor: default;
+    }
+
+    .message {
+      margin-top: 15px;
+      padding: 14px;
+      border-radius: 14px;
+      background: #121622;
+      border: 1px solid rgba(255,255,255,.08);
+      color: #929bad;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .error { color: #ff9ba7; }
+    .success { color: #8de4bd; }
+
+    .footer {
+      color: #707a8e;
+      text-align: center;
+      font-size: 11px;
+      line-height: 1.5;
+      margin: 24px 12px;
+    }
+  </style>
+</head>
+
+<body>
+<main class="app">
+
+  <header class="brand">
+    <div class="logo">H</div>
+    <div>
+      <div class="brand-name">HUB KEYS</div>
+      <div class="brand-sub">Hub Launcher Activation Center</div>
+    </div>
+  </header>
+
+  <h1>Твой ключ активации</h1>
+
+  <p class="intro">
+    Здесь хранится твой персональный ключ для Hub Launcher.
+    Он закреплён за твоим Telegram-аккаунтом.
+  </p>
+
+  <section class="card">
+
+    <div class="card-label">Персональный ключ</div>
+
+    <div class="key" id="key">
+      Загружаем ключ...
+    </div>
+
+    <div class="status" id="status">
+      <span class="dot"></span>
+      <span>Подключение к серверу</span>
+    </div>
+
+    <button id="copyButton" disabled>
+      Копировать ключ
+    </button>
+
+  </section>
+
+  <div class="message" id="message">
+    Подключаемся к Hub Keys...
+  </div>
+
+  <p class="footer">
+    Не передавай свой ключ другим людям.
+    Он предназначен для активации Hub Launcher.
+  </p>
+
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const SUPABASE_URL =
+    "https://uxioqpntmuuncoucucyb.supabase.co";
+
+  const SUPABASE_PUBLIC_KEY =
+    "sb_publishable_TZc02zE29TtC2N-5z_vMKg_E4D625cH";
+
+  const FUNCTION_URL =
+    SUPABASE_URL + "/functions/v1/hub-keys";
+
+  const tg = window.Telegram?.WebApp;
+
+  const keyElement = document.getElementById("key");
+  const statusElement = document.getElementById("status");
+  const messageElement = document.getElementById("message");
+  const copyButton = document.getElementById("copyButton");
+
+  let currentCode = "";
+
+  function showMessage(text, type = "") {
+    messageElement.textContent = text;
+    messageElement.className = "message " + type;
+  }
+
+  function setStatus(text, type = "pending") {
+    statusElement.replaceChildren();
+
+    const dot = document.createElement("span");
+    dot.className = "dot";
+
+    if (type === "active") dot.classList.add("active");
+    if (type === "revoked") dot.classList.add("revoked");
+
+    const label = document.createElement("span");
+    label.textContent = text;
+
+    statusElement.append(dot, label);
+  }
+
+  async function loadKey() {
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
+
+    const initData = tg?.initData || "";
+
+    if (!initData) {
+      keyElement.textContent = "Открой через Telegram";
+      setStatus("Нет данных Telegram", "revoked");
+
+      showMessage(
+        "Открой это приложение через Telegram-бота Hub Keys.",
+        "error"
+      );
+
+      return;
+    }
+
+    try {
+      const response = await fetch(FUNCTION_URL, {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_PUBLIC_KEY,
+          "Authorization": "Bearer " + SUPABASE_PUBLIC_KEY
+        },
+
+        body: JSON.stringify({
+          initData: initData
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || data.success !== true) {
+        if (response.status === 404) {
+          throw new Error(
+            "Свободные ключи закончились. Обратись к администратору."
+          );
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(
+            "Не удалось проверить Telegram. Перезапусти приложение."
+          );
+        }
+
+        throw new Error(
+          data.error || "Не удалось получить ключ."
+        );
+      }
+
+      if (
+        typeof data.code !== "string" ||
+        !/^HUB-[A-F0-9]{8}-[A-F0-9]{8}$/.test(data.code)
+      ) {
+        throw new Error("Сервер вернул некорректный ключ.");
+      }
+
+      currentCode = data.code;
+      keyElement.textContent = currentCode;
+
+      if (data.status === "active") {
+        setStatus("Активирован", "active");
+        showMessage(
+          "Твой ключ успешно активирован в Hub Launcher.",
+          "success"
+        );
+      }
+
+      else if (data.status === "revoked") {
+        setStatus("Код был удалён и отозван", "revoked");
+        showMessage(
+          "Этот ключ отозван и больше не может использоваться.",
+          "error"
+        );
+      }
+
+      else {
+        setStatus("Ожидает активации", "pending");
+        showMessage(
+          "Ключ закреплён за твоим Telegram-аккаунтом. Введи его в Hub Launcher."
+        );
+      }
+
+      copyButton.disabled = data.status === "revoked";
+
+    } catch (error) {
+      keyElement.textContent = "Ошибка загрузки";
+      setStatus("Ошибка подключения", "revoked");
+      showMessage(error.message || "Неизвестная ошибка.", "error");
+    }
+  }
+
+  copyButton.addEventListener("click", async () => {
+    if (!currentCode) return;
+
+    try {
+      await navigator.clipboard.writeText(currentCode);
+
+      showMessage("Ключ скопирован!", "success");
+
+      tg?.HapticFeedback?.notificationOccurred("success");
+
+    } catch (_) {
+      showMessage(
+        "Не удалось скопировать ключ. Скопируй его вручную.",
+        "error"
+      );
+    }
+  });
+
+  loadKey();
+
+})();
+</script>
+
+</body>
+</html>
